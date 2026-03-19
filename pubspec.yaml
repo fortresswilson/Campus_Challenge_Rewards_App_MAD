@@ -1,0 +1,28 @@
+name: campus_challenge_rewards_app_mad
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Database - Person 2 will use this for SQLite
+  sqflite: ^2.3.0
+  path: ^1.9.0
+
+  # Save login session
+  shared_preferences: ^2.2.2
+  # Font
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
