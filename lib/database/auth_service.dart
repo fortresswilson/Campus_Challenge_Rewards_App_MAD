@@ -1,6 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
- 
+ import '../database/login_service.dart';
 class AuthService {
   static final AuthService instance = AuthService._internal();
   AuthService._internal();
@@ -23,12 +23,10 @@ class AuthService {
       where: 'email = ?',
       whereArgs: [email.trim().toLowerCase()],
     );
-    if (existing.isNotEmpty) {
-      return 'An account with this email already exists.';
-      }
-    }
- 
-    try {
+  if (existing.isNotEmpty) {
+    return 'An account with this email already exists.';
+  }
+  try {
       final id = await db.insert('users', {
         'name': name.trim(),
         'email': email.trim().toLowerCase(),
@@ -46,8 +44,9 @@ class AuthService {
         'streak': 0,
       };
  
-      return null; // success
-    } on DatabaseException catch (e) {
-      return 'Sign-up failed: ${e.toString()}';
-    }
+    return null; // success
+  } on DatabaseException catch (e) {
+    return 'Sign-up failed: ${e.toString()}';
   }
+  }
+}
