@@ -30,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen>
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: const Duration(milliseconds: 800),
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
@@ -58,8 +58,6 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-
-    // Mock login delay — Person 2 will hook up real auth
     await Future.delayed(const Duration(milliseconds: 1200));
 
     if (!mounted) return;
