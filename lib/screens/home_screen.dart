@@ -7,7 +7,11 @@ import 'create_challenge_screen.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  // FIX 2: accepts the real logged-in user data from LoginScreen
+  final Map<String, dynamic>? currentUserData;
+
+  const HomeScreen({super.key, this.currentUserData});
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -18,19 +22,12 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
 
-  final List<Widget> _screens = const [
-    _HomeDashboard(),
-    ChallengeListScreen(),
-    CreateChallengeScreen(),
-    ProfileScreen(),
-  ];
-
   @override
   void initState() {
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600),
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _animController.forward();
@@ -44,12 +41,32 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Use real user name if available, fallback to mock
+    final userName = widget.currentUserData?['name'] as String? ?? currentUser.name;
+    final userPoints = widget.currentUserData?['points'] as int? ?? currentUser.totalPoints;
+    final userStreak = widget.currentUserData?['streak'] as int? ?? currentUser.currentStreak;
+
+    final screens = [
+      _HomeDashboard(
+        userName: userName,
+        userPoints: userPoints,
+        userStreak: userStreak,
+      ),
+      const ChallengeListScreen(),
+      const CreateChallengeScreen(),
+      ProfileScreen(
+        userName: userName,
+        userPoints: userPoints,
+        userStreak: userStreak,
+      ),
+    ];
+
     return Scaffold(
       body: FadeTransition(
         opacity: _fadeAnim,
         child: IndexedStack(
           index: _selectedIndex,
-          children: _screens,
+          children: screens,
         ),
       ),
       bottomNavigationBar: _buildBottomNav(),
@@ -79,8 +96,10 @@ class _HomeScreenState extends State<HomeScreen>
             children: [
               _navItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
               _navItem(1, Icons.flag_rounded, Icons.flag_outlined, 'Challenges'),
-              _navItem(2, Icons.add_circle_rounded, Icons.add_circle_outline_rounded, 'Create'),
-              _navItem(3, Icons.person_rounded, Icons.person_outline_rounded, 'Profile'),
+              _navItem(2, Icons.add_circle_rounded,
+                  Icons.add_circle_outline_rounded, 'Create'),
+              _navItem(3, Icons.person_rounded, Icons.person_outline_rounded,
+                  'Profile'),
             ],
           ),
         ),
@@ -88,7 +107,8 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _navItem(int index, IconData activeIcon, IconData inactiveIcon, String label) {
+  Widget _navItem(int index, IconData activeIcon, IconData inactiveIcon,
+      String label) {
     final isActive = _selectedIndex == index;
     final isCreate = index == 2;
 
@@ -105,7 +125,8 @@ class _HomeScreenState extends State<HomeScreen>
                   ? const EdgeInsets.all(2)
                   : const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: isActive && isCreate ? AppColors.primaryGradient : null,
+                gradient:
+                    isActive && isCreate ? AppColors.primaryGradient : null,
                 color: isActive && !isCreate
                     ? AppColors.primary.withOpacity(0.15)
                     : Colors.transparent,
@@ -140,7 +161,15 @@ class _HomeScreenState extends State<HomeScreen>
 // Home Dashboard Widget (tab 0)
 // ─────────────────────────────────────────────
 class _HomeDashboard extends StatelessWidget {
-  const _HomeDashboard();
+  final String userName;
+  final int userPoints;
+  final int userStreak;
+
+  const _HomeDashboard({
+    required this.userName,
+    required this.userPoints,
+    required this.userStreak,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -250,6 +279,9 @@ class _HomeDashboard extends StatelessWidget {
   }
 
   Widget _buildHeroCard(BuildContext context) {
+    // FIX 2: uses real userName and userStreak passed from HomeScreen
+    final firstName = userName.split(' ').first;
+
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -273,7 +305,7 @@ class _HomeDashboard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Hello, ${currentUser.name.split(' ').first}! 👋',
+                    'Hello, $firstName! 👋',
                     style: const TextStyle(
                       fontFamily: 'Nunito',
                       fontSize: 13,
@@ -295,7 +327,8 @@ class _HomeDashboard extends StatelessWidget {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(30),
@@ -305,7 +338,7 @@ class _HomeDashboard extends StatelessWidget {
                     const Text('🔥', style: TextStyle(fontSize: 16)),
                     const SizedBox(width: 4),
                     Text(
-                      '${currentUser.currentStreak} day streak',
+                      '$userStreak day streak',
                       style: const TextStyle(
                         fontFamily: 'Nunito',
                         fontSize: 13,
@@ -321,7 +354,7 @@ class _HomeDashboard extends StatelessWidget {
           const SizedBox(height: 20),
           Row(
             children: [
-              _heroStat('${currentUser.totalPoints}', 'Total Points', '⭐'),
+              _heroStat('$userPoints', 'Total Points', '⭐'),
               const SizedBox(width: 12),
               _heroStat('${currentUser.challengesJoined}', 'Joined', '🎯'),
               const SizedBox(width: 12),
@@ -375,7 +408,8 @@ class _HomeDashboard extends StatelessWidget {
       children: [
         _statCard('$activeChallenges', 'Active', '🏃', AppColors.secondary),
         const SizedBox(width: 12),
-        _statCard('${currentUser.badges.length}', 'Badges', '🏅', AppColors.accent),
+        _statCard('${currentUser.badges.length}', 'Badges', '🏅',
+            AppColors.accent),
         const SizedBox(width: 12),
         _statCard('#3', 'Rank', '🏆', const Color(0xFFFFD700)),
       ],
@@ -476,7 +510,8 @@ class _HomeDashboard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
-              child: Text(challenge.emoji, style: const TextStyle(fontSize: 22)),
+              child:
+                  Text(challenge.emoji, style: const TextStyle(fontSize: 22)),
             ),
           ),
           const SizedBox(width: 14),
@@ -499,7 +534,8 @@ class _HomeDashboard extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: challenge.progress,
                     backgroundColor: AppColors.bgDark,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.secondary),
+                    valueColor:
+                        const AlwaysStoppedAnimation(AppColors.secondary),
                     minHeight: 6,
                   ),
                 ),
@@ -529,26 +565,11 @@ class _HomeDashboard extends StatelessWidget {
   Widget _buildQuickActions(BuildContext context) {
     return Row(
       children: [
-        _quickAction(
-          '🎯',
-          'Browse\nChallenges',
-          AppColors.primary,
-          () {},
-        ),
+        _quickAction('🎯', 'Browse\nChallenges', AppColors.primary, () {}),
         const SizedBox(width: 12),
-        _quickAction(
-          '✏️',
-          'Create\nChallenge',
-          AppColors.secondary,
-          () {},
-        ),
+        _quickAction('✏️', 'Create\nChallenge', AppColors.secondary, () {}),
         const SizedBox(width: 12),
-        _quickAction(
-          '🏆',
-          'Leader-\nboard',
-          AppColors.accent,
-          () {},
-        ),
+        _quickAction('🏆', 'Leader-\nboard', AppColors.accent, () {}),
       ],
     );
   }
@@ -563,10 +584,7 @@ class _HomeDashboard extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: AppColors.cardGradient,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: color.withOpacity(0.35),
-              width: 1.5,
-            ),
+            border: Border.all(color: color.withOpacity(0.35), width: 1.5),
           ),
           child: Column(
             children: [
@@ -635,7 +653,7 @@ class _HomeDashboard extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  '"Try the Morning Run challenge — it matches your 7-day streak!"',
+                  '"Try the Morning Run challenge — it matches your streak!"',
                   style: TextStyle(
                     fontFamily: 'Nunito',
                     fontSize: 13,
