@@ -1,12 +1,20 @@
 // lib/screens/profile_screen.dart
-// UI by Person 1 — Person 2 wires up real SQLite data
-
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/mock_data.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+  // FIX 2: accepts real user data passed from HomeScreen
+  final String userName;
+  final int userPoints;
+  final int userStreak;
+
+  const ProfileScreen({
+    super.key,
+    this.userName = 'Alex Johnson',
+    this.userPoints = 340,
+    this.userStreak = 7,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +91,6 @@ class ProfileScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // Avatar
           Stack(
             clipBehavior: Clip.none,
             children: [
@@ -120,8 +127,9 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+          // FIX 2: shows real userName
           Text(
-            currentUser.name,
+            userName,
             style: const TextStyle(
               fontFamily: 'Nunito',
               fontSize: 22,
@@ -140,7 +148,6 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // Points badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             decoration: BoxDecoration(
@@ -152,8 +159,9 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 const Text('⭐', style: TextStyle(fontSize: 18)),
                 const SizedBox(width: 8),
+                // FIX 2: shows real userPoints
                 Text(
-                  '${currentUser.totalPoints} Points',
+                  '$userPoints Points',
                   style: const TextStyle(
                     fontFamily: 'Nunito',
                     fontSize: 18,
@@ -165,7 +173,6 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          // Streak pill
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(
@@ -177,8 +184,9 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 const Text('🔥', style: TextStyle(fontSize: 14)),
                 const SizedBox(width: 6),
+                // FIX 2: shows real userStreak
                 Text(
-                  '${currentUser.currentStreak}-day streak!',
+                  '$userStreak-day streak!',
                   style: const TextStyle(
                     fontFamily: 'Nunito',
                     fontSize: 13,
@@ -212,10 +220,10 @@ class ProfileScreen extends StatelessWidget {
         const SizedBox(height: 12),
         Row(
           children: [
-            _statCard('🏅', '${currentUser.badges.length}', 'Badges',
-                AppColors.accent),
+            _statCard(
+                '🏅', '${currentUser.badges.length}', 'Badges', AppColors.accent),
             const SizedBox(width: 12),
-            _statCard('🔥', '${currentUser.currentStreak}', 'Day Streak',
+            _statCard('🔥', '$userStreak', 'Day Streak',
                 const Color(0xFFFFBB33)),
           ],
         ),
@@ -243,8 +251,7 @@ class ProfileScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
-                  child: Text(emoji,
-                      style: const TextStyle(fontSize: 20))),
+                  child: Text(emoji, style: const TextStyle(fontSize: 20))),
             ),
             const SizedBox(width: 12),
             Column(
@@ -336,9 +343,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildRecentActivity() {
-    final completedChallenges =
-        mockChallenges.where((c) => c.isJoined).toList();
-
+    final activeChallenges = mockChallenges.where((c) => c.isJoined).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -351,7 +356,7 @@ class ProfileScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFF2E2C4A)),
           ),
-          child: completedChallenges.isEmpty
+          child: activeChallenges.isEmpty
               ? Padding(
                   padding: const EdgeInsets.all(16),
                   child: Center(
@@ -360,9 +365,8 @@ class ProfileScreen extends StatelessWidget {
                   ),
                 )
               : Column(
-                  children: completedChallenges
-                      .map((c) => _activityRow(c))
-                      .toList(),
+                  children:
+                      activeChallenges.map((c) => _activityRow(c)).toList(),
                 ),
         ),
       ],
@@ -435,7 +439,11 @@ class ProfileScreen extends StatelessWidget {
             children: leaderboard.asMap().entries.map((entry) {
               final rank = entry.key + 1;
               final player = entry.value;
-              final isCurrentUser = player['name'] == 'Alex J.';
+              final isCurrentUser = player['name'] ==
+                  userName.split(' ').first + ' ' +
+                      (userName.split(' ').length > 1
+                          ? userName.split(' ').last[0] + '.'
+                          : '');
               return _leaderboardRow(rank, player, isCurrentUser);
             }).toList(),
           ),
@@ -499,7 +507,8 @@ class ProfileScreen extends StatelessWidget {
               fontFamily: 'Nunito',
               fontSize: 13,
               fontWeight: FontWeight.w800,
-              color: isCurrentUser ? AppColors.primary : AppColors.textSecondary,
+              color:
+                  isCurrentUser ? AppColors.primary : AppColors.textSecondary,
             ),
           ),
         ],
