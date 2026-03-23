@@ -1,3 +1,4 @@
+// lib/database/database_helper.dart
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
@@ -27,7 +28,7 @@ class DatabaseHelper {
   Future _createDB(Database db, int version) async {
     // 1. Users table
     await db.execute('''
-      CREATE TABLE users (
+      CREATE TABLE IF NOT EXISTS users (
         id       INTEGER PRIMARY KEY AUTOINCREMENT,
         name     TEXT    NOT NULL,
         email    TEXT    NOT NULL UNIQUE,
@@ -39,22 +40,7 @@ class DatabaseHelper {
 
     // 2. Challenges table
     await db.execute('''
-      CREATE TABLE challenges (
-        id            INTEGER PRIMARY KEY AUTOINCREMENT,
-        title         TEXT    NOT NULL,
-        description   TEXT    NOT NULL,
-        category      TEXT    NOT NULL,
-        difficulty    TEXT    NOT NULL,
-        duration_days INTEGER NOT NULL,
-        points_reward INTEGER NOT NULL,
-        emoji         TEXT    NOT NULL,
-        created_by    INTEGER NOT NULL,
-        FOREIGN KEY (created_by) REFERENCES users(id)
-      )
-    ''');
-       // 2. Challenges table
-    await db.execute('''
-      CREATE TABLE challenges (
+      CREATE TABLE IF NOT EXISTS challenges (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
         title         TEXT    NOT NULL,
         description   TEXT    NOT NULL,
@@ -70,7 +56,7 @@ class DatabaseHelper {
 
     // 3. Participants table
     await db.execute('''
-      CREATE TABLE participants (
+      CREATE TABLE IF NOT EXISTS participants (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id      INTEGER NOT NULL,
         challenge_id INTEGER NOT NULL,
@@ -84,7 +70,7 @@ class DatabaseHelper {
 
     // 4. Rewards table
     await db.execute('''
-      CREATE TABLE rewards (
+      CREATE TABLE IF NOT EXISTS rewards (
         id               INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id          INTEGER NOT NULL,
         badge_name       TEXT    NOT NULL,
@@ -94,11 +80,12 @@ class DatabaseHelper {
       )
     ''');
 
-    // Seed some sample challenges so the home screen isn't empty
+    // Seed starter challenges
     await _seedChallenges(db);
   }
+
   Future _seedChallenges(Database db) async {
-    // Insert a system user (id=1) to own seed challenges
+    // System user to own seed challenges
     await db.insert('users', {
       'name': 'CampusQuest',
       'email': 'system@campusquest.app',
@@ -159,5 +146,4 @@ class DatabaseHelper {
     final db = await instance.database;
     db.close();
   }
-}
-  
+} 
