@@ -1,49 +1,109 @@
 // lib/screens/profile_screen.dart
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../models/mock_data.dart';
+import '../database/challenge_service.dart';
+import '../database/login_service.dart';
 
-class ProfileScreen extends StatelessWidget {
-  // FIX 2: accepts real user data passed from HomeScreen
-  final String userName;
-  final int userPoints;
-  final int userStreak;
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
 
-  const ProfileScreen({
-    super.key,
-    this.userName = 'Alex Johnson',
-    this.userPoints = 340,
-    this.userStreak = 7,
-  });
+  @override
+  State<ProfileScreen> createState() => ProfileScreenState();
+}
+
+class ProfileScreenState extends State<ProfileScreen> {
+  bool _isLoading = true;
+  String _userName = '';
+  String _userEmail = '';
+  int _points = 0;
+  int _streak = 0;
+  int _joined = 0;
+  int _completed = 0;
+  List<Map<String, dynamic>> _badges = [];
+  List<Map<String, dynamic>> _activeChallenges = [];
+  List<Map<String, dynamic>> _leaderboard = [];
+
+  int get _currentUserId =>
+      LoginService.instance.getCurrentUser()?['id'] as int? ?? 0;
+
+  @override
+  void initState() {
+    super.initState();
+    loadData();
+  }
+
+  // Reload every time this tab becomes visible
+  Future<void> loadData() async {
+    final user = LoginService.instance.getCurrentUser();
+    if (user == null) return;
+
+    final points =
+        await ChallengeService.instance.getUserPoints(_currentUserId);
+    final badges =
+        await ChallengeService.instance.getUserBadges(_currentUserId);
+    final joined =
+        await ChallengeService.instance.getJoinedChallenges(_currentUserId);
+    final leaderboard = await ChallengeService.instance.getLeaderboard();
+
+    final completedCount = joined.where((c) => c['completed'] == 1).length;
+    final active = joined.where((c) => c['completed'] == 0).toList();
+
+    if (mounted) {
+      setState(() {
+        _userName = user['name'] as String? ?? '';
+        _userEmail = user['email'] as String? ?? '';
+        _points = points;
+        _streak = user['streak'] as int? ?? 0;
+        _joined = joined.length;
+        _completed = completedCount;
+        _badges = badges;
+        _activeChallenges = active;
+        _leaderboard = leaderboard;
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Container(
+        decoration: const BoxDecoration(gradient: AppColors.heroGradient),
+        child: const Center(
+            child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+
     return Container(
       decoration: const BoxDecoration(gradient: AppColors.heroGradient),
       child: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            _buildAppBar(),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  const SizedBox(height: 8),
-                  _buildProfileHero(),
-                  const SizedBox(height: 24),
-                  _buildStatsGrid(),
-                  const SizedBox(height: 24),
-                  _buildBadgesSection(),
-                  const SizedBox(height: 24),
-                  _buildRecentActivity(),
-                  const SizedBox(height: 24),
-                  _buildLeaderboardCard(),
-                  const SizedBox(height: 32),
-                ]),
+        child: RefreshIndicator(
+          onRefresh: loadData,
+          color: AppColors.primary,
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              _buildAppBar(),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    const SizedBox(height: 8),
+                    _buildProfileHero(),
+                    const SizedBox(height: 24),
+                    _buildStatsGrid(),
+                    const SizedBox(height: 24),
+                    _buildBadgesSection(),
+                    const SizedBox(height: 24),
+                    _buildActiveChallenges(),
+                    const SizedBox(height: 24),
+                    _buildLeaderboardCard(),
+                    const SizedBox(height: 32),
+                  ]),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -64,11 +124,8 @@ class ProfileScreen extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFF2E2C4A)),
             ),
-            child: const Icon(
-              Icons.settings_outlined,
-              color: AppColors.textSecondary,
-              size: 20,
-            ),
+            child: const Icon(Icons.settings_outlined,
+                color: AppColors.textSecondary, size: 20),
           ),
         ),
       ],
@@ -76,6 +133,8 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildProfileHero() {
+    final firstName =
+        _userName.isNotEmpty ? _userName.split(' ').first : '?';
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -102,8 +161,15 @@ class ProfileScreen extends StatelessWidget {
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 3),
                 ),
-                child: const Center(
-                  child: Text('🦊', style: TextStyle(fontSize: 36)),
+                child: Center(
+                  child: Text(
+                    firstName[0].toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 36,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                 ),
               ),
               Positioned(
@@ -117,19 +183,15 @@ class ProfileScreen extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: AppColors.primary, width: 2),
                   ),
-                  child: const Icon(
-                    Icons.verified_rounded,
-                    color: Colors.white,
-                    size: 14,
-                  ),
+                  child: const Icon(Icons.verified_rounded,
+                      color: Colors.white, size: 14),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          // FIX 2: shows real userName
           Text(
-            userName,
+            _userName,
             style: const TextStyle(
               fontFamily: 'Nunito',
               fontSize: 22,
@@ -140,16 +202,14 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            currentUser.email,
+            _userEmail,
             style: const TextStyle(
-              fontFamily: 'Nunito',
-              fontSize: 13,
-              color: Colors.white70,
-            ),
+                fontFamily: 'Nunito', fontSize: 13, color: Colors.white70),
           ),
           const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(30),
@@ -159,9 +219,8 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 const Text('⭐', style: TextStyle(fontSize: 18)),
                 const SizedBox(width: 8),
-                // FIX 2: shows real userPoints
                 Text(
-                  '$userPoints Points',
+                  '$_points Points',
                   style: const TextStyle(
                     fontFamily: 'Nunito',
                     fontSize: 18,
@@ -174,7 +233,8 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(
               color: const Color(0xFFFF6B6B).withOpacity(0.25),
               borderRadius: BorderRadius.circular(20),
@@ -184,9 +244,8 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 const Text('🔥', style: TextStyle(fontSize: 14)),
                 const SizedBox(width: 6),
-                // FIX 2: shows real userStreak
                 Text(
-                  '$userStreak-day streak!',
+                  '$_streak-day streak!',
                   style: const TextStyle(
                     fontFamily: 'Nunito',
                     fontSize: 13,
@@ -210,21 +269,18 @@ class ProfileScreen extends StatelessWidget {
         const SizedBox(height: 12),
         Row(
           children: [
-            _statCard('🎯', '${currentUser.challengesJoined}', 'Joined',
-                AppColors.primary),
+            _statCard('🎯', '$_joined', 'Joined', AppColors.primary),
             const SizedBox(width: 12),
-            _statCard('✅', '${currentUser.challengesCompleted}', 'Completed',
-                AppColors.secondary),
+            _statCard('✅', '$_completed', 'Completed', AppColors.secondary),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            _statCard(
-                '🏅', '${currentUser.badges.length}', 'Badges', AppColors.accent),
+            _statCard('🏅', '${_badges.length}', 'Badges', AppColors.accent),
             const SizedBox(width: 12),
-            _statCard('🔥', '$userStreak', 'Day Streak',
-                const Color(0xFFFFBB33)),
+            _statCard(
+                '🔥', '$_streak', 'Day Streak', const Color(0xFFFFBB33)),
           ],
         ),
       ],
@@ -235,11 +291,13 @@ class ProfileScreen extends StatelessWidget {
       String emoji, String value, String label, Color accentColor) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+        padding:
+            const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
         decoration: BoxDecoration(
           gradient: AppColors.cardGradient,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
+          border:
+              Border.all(color: accentColor.withOpacity(0.3), width: 1.5),
         ),
         child: Row(
           children: [
@@ -251,21 +309,20 @@ class ProfileScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
-                  child: Text(emoji, style: const TextStyle(fontSize: 20))),
+                  child:
+                      Text(emoji, style: const TextStyle(fontSize: 20))),
             ),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontFamily: 'Nunito',
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: accentColor,
-                  ),
-                ),
+                Text(value,
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: accentColor,
+                    )),
                 Text(label, style: AppTextStyles.label),
               ],
             ),
@@ -288,17 +345,27 @@ class ProfileScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFF2E2C4A)),
           ),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: currentUser.badges
-                .map((badge) => _badgePill(badge))
-                .toList()
-              ..addAll([
-                _badgePill('???', isLocked: true),
-                _badgePill('???', isLocked: true),
-              ]),
-          ),
+          child: _badges.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(
+                      'Complete challenges to earn badges! 🏅',
+                      style: AppTextStyles.body,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              : Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    ..._badges.map(
+                        (b) => _badgePill(b['badge_name'] as String)),
+                    _badgePill('???', isLocked: true),
+                    _badgePill('???', isLocked: true),
+                  ],
+                ),
         ),
       ],
     );
@@ -342,8 +409,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentActivity() {
-    final activeChallenges = mockChallenges.where((c) => c.isJoined).toList();
+  Widget _buildActiveChallenges() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -356,36 +422,41 @@ class ProfileScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFF2E2C4A)),
           ),
-          child: activeChallenges.isEmpty
+          child: _activeChallenges.isEmpty
               ? Padding(
                   padding: const EdgeInsets.all(16),
                   child: Center(
-                    child: Text('No active challenges yet!',
-                        style: AppTextStyles.body),
+                    child: Text(
+                      'No active challenges yet!\nJoin one to get started 🎯',
+                      style: AppTextStyles.body,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 )
               : Column(
-                  children:
-                      activeChallenges.map((c) => _activityRow(c)).toList(),
+                  children: _activeChallenges
+                      .map((c) => _activityRow(c))
+                      .toList(),
                 ),
         ),
       ],
     );
   }
 
-  Widget _activityRow(MockChallenge challenge) {
+  Widget _activityRow(Map<String, dynamic> challenge) {
+    final progress = (challenge['progress'] as num).toDouble();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
-          Text(challenge.emoji, style: const TextStyle(fontSize: 20)),
+          Text(challenge['emoji'], style: const TextStyle(fontSize: 20)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  challenge.title,
+                  challenge['title'],
                   style: const TextStyle(
                     fontFamily: 'Nunito',
                     fontSize: 13,
@@ -397,10 +468,10 @@ class ProfileScreen extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(3),
                   child: LinearProgressIndicator(
-                    value: challenge.progress,
+                    value: progress,
                     backgroundColor: AppColors.bgDark,
-                    valueColor:
-                        const AlwaysStoppedAnimation(AppColors.secondary),
+                    valueColor: const AlwaysStoppedAnimation(
+                        AppColors.secondary),
                     minHeight: 5,
                   ),
                 ),
@@ -409,7 +480,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Text(
-            '+${challenge.pointsReward}',
+            '+${challenge['points_reward']}',
             style: const TextStyle(
               fontFamily: 'Nunito',
               fontSize: 13,
@@ -435,18 +506,23 @@ class ProfileScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFF2E2C4A)),
           ),
-          child: Column(
-            children: leaderboard.asMap().entries.map((entry) {
-              final rank = entry.key + 1;
-              final player = entry.value;
-              final isCurrentUser = player['name'] ==
-                  userName.split(' ').first + ' ' +
-                      (userName.split(' ').length > 1
-                          ? userName.split(' ').last[0] + '.'
-                          : '');
-              return _leaderboardRow(rank, player, isCurrentUser);
-            }).toList(),
-          ),
+          child: _leaderboard.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child:
+                        Text('No users yet!', style: AppTextStyles.body),
+                  ),
+                )
+              : Column(
+                  children: _leaderboard.asMap().entries.map((entry) {
+                    final rank = entry.key + 1;
+                    final player = entry.value;
+                    final isCurrentUser =
+                        player['id'] == _currentUserId;
+                    return _leaderboardRow(rank, player, isCurrentUser);
+                  }).toList(),
+                ),
         ),
       ],
     );
@@ -461,10 +537,13 @@ class ProfileScreen extends StatelessWidget {
             : rank == 3
                 ? '🥉'
                 : '#$rank';
+    final name = player['name'] as String? ?? 'Unknown';
+    final points = player['points'] as int? ?? 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: isCurrentUser
             ? AppColors.primary.withOpacity(0.15)
@@ -479,18 +558,38 @@ class ProfileScreen extends StatelessWidget {
         children: [
           SizedBox(
             width: 32,
-            child: Text(
-              medal,
-              style: const TextStyle(fontSize: 18),
-              textAlign: TextAlign.center,
+            child: Text(medal,
+                style: const TextStyle(fontSize: 18),
+                textAlign: TextAlign.center),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: isCurrentUser
+                  ? AppColors.primary.withOpacity(0.3)
+                  : AppColors.bgCardLight,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                name[0].toUpperCase(),
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: isCurrentUser
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 10),
-          Text(player['avatar'], style: const TextStyle(fontSize: 22)),
-          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              player['name'],
+              isCurrentUser ? '$name (You)' : name,
               style: TextStyle(
                 fontFamily: 'Nunito',
                 fontSize: 14,
@@ -502,13 +601,14 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           Text(
-            '${player['points']} pts',
+            '$points pts',
             style: TextStyle(
               fontFamily: 'Nunito',
               fontSize: 13,
               fontWeight: FontWeight.w800,
-              color:
-                  isCurrentUser ? AppColors.primary : AppColors.textSecondary,
+              color: isCurrentUser
+                  ? AppColors.primary
+                  : AppColors.textSecondary,
             ),
           ),
         ],
