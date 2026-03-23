@@ -1,13 +1,13 @@
 import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
- import '../database/login_service.dart';
+
 class AuthService {
   static final AuthService instance = AuthService._internal();
   AuthService._internal();
- 
+
   // Holds the logged-in user for the session
   Map<String, dynamic>? _currentUser;
- 
+
   // ── CREATE USER ──────────────────────────────────────────
   /// Returns null on success, or an error string on failure.
   Future<String?> createUser({
@@ -16,17 +16,18 @@ class AuthService {
     required String password,
   }) async {
     final db = await DatabaseHelper.instance.database;
- 
+
     // Check if email already exists
     final existing = await db.query(
       'users',
       where: 'email = ?',
       whereArgs: [email.trim().toLowerCase()],
     );
-  if (existing.isNotEmpty) {
-    return 'An account with this email already exists.';
-  }
-  try {
+    if (existing.isNotEmpty) {
+      return 'An account with this email already exists.';
+    }
+
+    try {
       final id = await db.insert('users', {
         'name': name.trim(),
         'email': email.trim().toLowerCase(),
@@ -34,7 +35,7 @@ class AuthService {
         'points': 0,
         'streak': 0,
       });
- 
+
       // Auto-login after sign-up
       _currentUser = {
         'id': id,
@@ -43,10 +44,38 @@ class AuthService {
         'points': 0,
         'streak': 0,
       };
- 
+
+      return null; // success
+    } on DatabaseException catch (e) {
+      return 'Sign-up failed: ${e.toString()}';
+    }
+  }
+
+  // ── LOGIN USER ───────────────────────────────────────────
+  /// Returns null on success, or an error string on failure.
+  Future<String?> loginUser({
+    required String email,
+    required String password,
+  }) async {
+    final db = await DatabaseHelper.instance.database;
+
+    final results = await db.query(
+      'users',
+      where: 'email = ? AND password = ?',
+      whereArgs: [email.trim().toLowerCase(), password],
+    );
+
+    if (results.isEmpty) {
+      return 'Incorrect email or password.';
+    }
+
+    _currentUser = Map<String, dynamic>.from(results.first);
     return null; // success
-  } on DatabaseException catch (e) {
-    return 'Sign-up failed: ${e.toString()}';
   }
-  }
+
+  // ── GET CURRENT USER ─────────────────────────────────────
+  Map<String, dynamic>? getCurrentUser() => _currentUser;
+
+  // ── LOGOUT ───────────────────────────────────────────────
+  void logout() => _currentUser = null;
 }
