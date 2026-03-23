@@ -10,30 +10,42 @@ class LoginService {
   Map<String, dynamic>? _currentUser;
 
   /// Returns null on success, or an error string on failure.
-  Future<String?> loginUser({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      final db = await DatabaseHelper.instance.database;
+Future<String?> loginUser({
+  required String email,
+  required String password,
+}) async {
+  try {
+    final db = await DatabaseHelper.instance.database;
 
-      final results = await db.query(
-        'users',
-        where: 'email = ? AND password = ?',
-        whereArgs: [email.trim().toLowerCase(), password],
-      );
+    // Step 1: check if email exists first
+    final emailCheck = await db.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: [email.trim().toLowerCase()],
+    );
 
-      if (results.isEmpty) {
-        // FIX: clear message telling user to sign up
-        return 'No account found. Please sign up first!';
-      }
-
-      _currentUser = Map<String, dynamic>.from(results.first);
-      return null; // success
-    } catch (e) {
-      return 'Login failed: ${e.toString()}';
+    if (emailCheck.isEmpty) {
+      return 'No account found. Please sign up first!';
     }
+
+    // Step 2: email exists, now check password
+    final passwordCheck = await db.query(
+      'users',
+      where: 'email = ? AND password = ?',
+      whereArgs: [email.trim().toLowerCase(), password],
+    );
+
+    if (passwordCheck.isEmpty) {
+      return 'Wrong password. Please try again!';
+    }
+
+    _currentUser = Map<String, dynamic>.from(passwordCheck.first);
+    return null; // success
+
+  } catch (e) {
+    return 'Login failed: ${e.toString()}';
   }
+}
 
   Map<String, dynamic>? getCurrentUser() => _currentUser;
 
