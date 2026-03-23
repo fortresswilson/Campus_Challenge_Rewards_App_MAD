@@ -110,13 +110,11 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     // Get the logged-in user from the correct service
-    final user = _isLogin
-        ? LoginService.instance.getCurrentUser()
-        : AuthService.instance.getCurrentUser();
+  
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, a1, a2) => HomeScreen(currentUserData: user),
+      pageBuilder: (_, a1, a2) => const HomeScreen(),
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 400),
