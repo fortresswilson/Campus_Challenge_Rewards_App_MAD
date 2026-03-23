@@ -1,6 +1,8 @@
 // lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../database/auth_service.dart';
+import '../database/login_service.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -30,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen>
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 700),
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
@@ -55,21 +57,68 @@ class _LoginScreenState extends State<LoginScreen>
     _animController.forward();
   }
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        // Give user time to read the message
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   Future<void> _handleSubmit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
+
+    String? error;
+
+    if (_isLogin) {
+      // FIX: uses singleton instance, not a new LoginService()
+      error = await LoginService.instance.loginUser(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+    } else {
+      error = await AuthService.instance.createUser(
+        name: _nameController.text,
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+    }
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
+    if (error != null) {
+      _showError(error);
+
+      // FIX: if user not found on login, auto-switch to Sign Up tab
+      if (_isLogin && error.contains('No account found')) {
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) {
+            setState(() => _isLogin = false);
+            _animController.reset();
+            _animController.forward();
+          }
+        });
+      }
+      return;
+    }
+
+    // Get the logged-in user from the correct service
+    final user = _isLogin
+        ? LoginService.instance.getCurrentUser()
+        : AuthService.instance.getCurrentUser();
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, a1, a2) => const HomeScreen(),
-        transitionsBuilder: (_, anim, __, child) => FadeTransition(
-          opacity: anim,
-          child: child,
-        ),
+        pageBuilder: (_, a1, a2) => HomeScreen(currentUserData: user),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 400),
       ),
     );
@@ -112,7 +161,6 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Logo pill
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
