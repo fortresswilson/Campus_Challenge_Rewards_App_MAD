@@ -1,8 +1,8 @@
 // lib/screens/create_challenge_screen.dart
-// UI by Person 1 — Person 2 wires up SQLite save logic
-
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../database/challenge_service.dart';
+import '../database/login_service.dart';
 
 class CreateChallengeScreen extends StatefulWidget {
   const CreateChallengeScreen({super.key});
@@ -30,6 +30,9 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
   };
   final List<String> _difficulties = ['Easy', 'Medium', 'Hard'];
 
+  int get _currentUserId =>
+      LoginService.instance.getCurrentUser()?['id'] as int? ?? 0;
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -37,32 +40,63 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     super.dispose();
   }
 
-  // TODO Person 2: Replace with SQLite INSERT
+  // FIX: now saves to real SQLite database
   Future<void> _handleCreate() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text(
-          'Challenge created! 🎉',
-          style: TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w700),
+
+    try {
+      final emoji = _categoryEmojis[_selectedCategory] ?? '🏆';
+
+      await ChallengeService.instance.createChallenge(
+        title: _titleController.text.trim(),
+        description: _descController.text.trim(),
+        category: _selectedCategory,
+        difficulty: _selectedDifficulty,
+        durationDays: _durationDays,
+        pointsReward: _pointsReward,
+        emoji: emoji,
+        createdBy: _currentUserId,
+      );
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Challenge created! 🎉',
+            style: TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w700),
+          ),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-    _titleController.clear();
-    _descController.clear();
-    setState(() {
-      _durationDays = 7;
-      _pointsReward = 100;
-      _selectedCategory = 'Fitness';
-      _selectedDifficulty = 'Medium';
-    });
+      );
+
+      // Reset form
+      _titleController.clear();
+      _descController.clear();
+      setState(() {
+        _durationDays = 7;
+        _pointsReward = 100;
+        _selectedCategory = 'Fitness';
+        _selectedDifficulty = 'Medium';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create: ${e.toString()}'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
   }
 
   @override
@@ -106,21 +140,13 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
                         ),
                       ]),
                       const SizedBox(height: 20),
-                      _buildSection('Category', [
-                        _buildCategoryPicker(),
-                      ]),
+                      _buildSection('Category', [_buildCategoryPicker()]),
                       const SizedBox(height: 20),
-                      _buildSection('Difficulty', [
-                        _buildDifficultyPicker(),
-                      ]),
+                      _buildSection('Difficulty', [_buildDifficultyPicker()]),
                       const SizedBox(height: 20),
-                      _buildSection('Duration', [
-                        _buildDurationSlider(),
-                      ]),
+                      _buildSection('Duration', [_buildDurationSlider()]),
                       const SizedBox(height: 20),
-                      _buildSection('Points Reward', [
-                        _buildPointsSlider(),
-                      ]),
+                      _buildSection('Points Reward', [_buildPointsSlider()]),
                       const SizedBox(height: 28),
                       _buildPreviewCard(),
                       const SizedBox(height: 20),
@@ -184,11 +210,10 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
       controller: controller,
       maxLines: maxLines,
       validator: validator,
+      onChanged: (_) => setState(() {}), // updates preview live
       style: const TextStyle(
-        fontFamily: 'Nunito',
-        color: AppColors.textPrimary,
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
+        fontFamily: 'Nunito', color: AppColors.textPrimary,
+        fontSize: 14, fontWeight: FontWeight.w600,
       ),
       decoration: InputDecoration(
         labelText: label,
@@ -215,14 +240,15 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
               color: isSelected ? null : AppColors.bgDark,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isSelected ? AppColors.primary : const Color(0xFF2E2C4A),
+                color: isSelected
+                    ? AppColors.primary
+                    : const Color(0xFF2E2C4A),
               ),
             ),
             child: Text(
               '${_categoryEmojis[cat]} $cat',
               style: TextStyle(
-                fontFamily: 'Nunito',
-                fontSize: 13,
+                fontFamily: 'Nunito', fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: isSelected ? Colors.white : AppColors.textSecondary,
               ),
@@ -261,16 +287,13 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
                   width: isSelected ? 2 : 1,
                 ),
               ),
-              child: Text(
-                d,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: isSelected ? color : AppColors.textMuted,
-                ),
-              ),
+              child: Text(d,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Nunito', fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? color : AppColors.textMuted,
+                  )),
             ),
           ),
         );
@@ -284,17 +307,12 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Duration',
-              style: AppTextStyles.body.copyWith(fontSize: 13),
-            ),
+            Text('Duration', style: AppTextStyles.body.copyWith(fontSize: 13)),
             Text(
               '$_durationDays day${_durationDays > 1 ? 's' : ''}',
               style: const TextStyle(
-                fontFamily: 'Nunito',
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: AppColors.primary,
+                fontFamily: 'Nunito', fontSize: 16,
+                fontWeight: FontWeight.w900, color: AppColors.primary,
               ),
             ),
           ],
@@ -309,9 +327,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
           ),
           child: Slider(
             value: _durationDays.toDouble(),
-            min: 1,
-            max: 30,
-            divisions: 29,
+            min: 1, max: 30, divisions: 29,
             onChanged: (v) => setState(() => _durationDays = v.round()),
           ),
         ),
@@ -332,22 +348,20 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Points Reward', style: AppTextStyles.body.copyWith(fontSize: 13)),
+            Text('Points Reward',
+                style: AppTextStyles.body.copyWith(fontSize: 13)),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 gradient: AppColors.mintGradient,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(
-                '⭐ $_pointsReward pts',
-                style: const TextStyle(
-                  fontFamily: 'Nunito',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
+              child: Text('⭐ $_pointsReward pts',
+                  style: const TextStyle(
+                    fontFamily: 'Nunito', fontSize: 13,
+                    fontWeight: FontWeight.w800, color: Colors.white,
+                  )),
             ),
           ],
         ),
@@ -361,9 +375,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
           ),
           child: Slider(
             value: _pointsReward.toDouble(),
-            min: 50,
-            max: 500,
-            divisions: 9,
+            min: 50, max: 500, divisions: 9,
             onChanged: (v) => setState(() => _pointsReward = v.round()),
           ),
         ),
@@ -387,34 +399,27 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
         boxShadow: [
           BoxShadow(
             color: AppColors.primary.withOpacity(0.35),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
+            blurRadius: 20, offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '👀 Preview',
-            style: TextStyle(
-              fontFamily: 'Nunito',
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Colors.white70,
-              letterSpacing: 0.5,
-            ),
-          ),
+          const Text('👀 Preview',
+              style: TextStyle(
+                fontFamily: 'Nunito', fontSize: 12,
+                fontWeight: FontWeight.w700, color: Colors.white70,
+                letterSpacing: 0.5,
+              )),
           const SizedBox(height: 8),
           Text(
             _titleController.text.isEmpty
                 ? 'Your challenge title'
                 : _titleController.text,
             style: const TextStyle(
-              fontFamily: 'Nunito',
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
+              fontFamily: 'Nunito', fontSize: 20,
+              fontWeight: FontWeight.w900, color: Colors.white,
               letterSpacing: -0.3,
             ),
           ),
@@ -424,10 +429,8 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
                 ? 'Your description will appear here...'
                 : _descController.text,
             style: const TextStyle(
-              fontFamily: 'Nunito',
-              fontSize: 13,
-              color: Colors.white70,
-              height: 1.4,
+              fontFamily: 'Nunito', fontSize: 13,
+              color: Colors.white70, height: 1.4,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -435,7 +438,8 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
           const SizedBox(height: 12),
           Row(
             children: [
-              _previewChip('${_categoryEmojis[_selectedCategory]} $_selectedCategory'),
+              _previewChip(
+                  '${_categoryEmojis[_selectedCategory]} $_selectedCategory'),
               const SizedBox(width: 8),
               _previewChip('⏱️ $_durationDays days'),
               const SizedBox(width: 8),
@@ -454,15 +458,11 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
         color: Colors.white.withOpacity(0.2),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontFamily: 'Nunito',
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
-      ),
+      child: Text(text,
+          style: const TextStyle(
+            fontFamily: 'Nunito', fontSize: 11,
+            fontWeight: FontWeight.w700, color: Colors.white,
+          )),
     );
   }
 
@@ -487,26 +487,20 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
             alignment: Alignment.center,
             child: _isLoading
                 ? const SizedBox(
-                    width: 22,
-                    height: 22,
+                    width: 22, height: 22,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2.5, color: Colors.white),
-                  )
+                        strokeWidth: 2.5, color: Colors.white))
                 : const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.add_circle_outline_rounded,
                           color: Colors.white, size: 20),
                       SizedBox(width: 8),
-                      Text(
-                        'Create Challenge',
-                        style: TextStyle(
-                          fontFamily: 'Nunito',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
+                      Text('Create Challenge',
+                          style: TextStyle(
+                            fontFamily: 'Nunito', fontSize: 16,
+                            fontWeight: FontWeight.w700, color: Colors.white,
+                          )),
                     ],
                   ),
           ),

@@ -310,7 +310,7 @@ class _ChallengeListScreenState extends State<ChallengeListScreen>
               await Navigator.of(context).push(
                 PageRouteBuilder(
                   pageBuilder: (_, a1, a2) =>
-                      ChallengeDetailScreen(challenge: MockChallenge.fromMap(challenge)),
+                      ChallengeDetailScreen(challenge: challenge),
                   transitionsBuilder: (_, anim, __, child) => SlideTransition(
                     position: Tween<Offset>(
                       begin: const Offset(1, 0),
